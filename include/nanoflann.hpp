@@ -3,7 +3,7 @@
  *
  * Copyright 2008-2009  Marius Muja (mariusm@cs.ubc.ca). All rights reserved.
  * Copyright 2008-2009  David G. Lowe (lowe@cs.ubc.ca). All rights reserved.
- * Copyright 2011-2014  Jose Luis Blanco (joseluisblancoc@gmail.com).
+ * Copyright 2011-2016  Jose Luis Blanco (joseluisblancoc@gmail.com).
  *   All rights reserved.
  *
  * THE BSD LICENSE
@@ -40,6 +40,7 @@
   *  See: 
   *   - <a href="modules.html" >C++ API organized by modules</a>
   *   - <a href="https://github.com/jlblancoc/nanoflann" >Online README</a>
+  *   - <a href="http://jlblancoc.github.io/nanoflann/" >Doxygen documentation</a>
   */
 
 #ifndef  NANOFLANN_HPP_
@@ -50,7 +51,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include <cstdio>  // for fwrite()
-#include <cmath>   // for fabs(),...
+#include <cmath>   // for abs()
+#include <cstdlib> // for abs()
 #include <limits>
 
 // Avoid conflicting declaration of min/max macros in windows headers
@@ -68,7 +70,7 @@ namespace nanoflann
   *  @{ */
 
   	/** Library version: 0xMmP (M=Major,m=minor,P=patch) */
-	#define NANOFLANN_VERSION 0x119
+	#define NANOFLANN_VERSION 0x120
 
 	/** @addtogroup result_sets_grp Result set classes
 	  *  @{ */
@@ -247,12 +249,6 @@ namespace nanoflann
 	/** @addtogroup metric_grp Metric (distance) classes
 	  * @{ */
 
-	template<typename T> inline T abs(T x) { return (x<0) ? -x : x; }
-	template<> inline int abs<int>(int x) { return ::abs(x); }
-	template<> inline float abs<float>(float x) { return fabsf(x); }
-	template<> inline double abs<double>(double x) { return fabs(x); }
-	template<> inline long double abs<long double>(long double x) { return fabsl(x); }
-
 	/** Manhattan distance functor (generic version, optimized for high-dimensionality data sets).
 	  *  Corresponding distance traits: nanoflann::metric_L1
 	  * \tparam T Type of the elements (e.g. double, float, uint8_t)
@@ -264,7 +260,7 @@ namespace nanoflann
 		typedef T ElementType;
 		typedef _DistanceType DistanceType;
 
-		const DataSource &data_source;
+		const DataSource data_source;
 
 		L1_Adaptor(const DataSource &_data_source) : data_source(_data_source) { }
 
@@ -277,10 +273,10 @@ namespace nanoflann
 
 			/* Process 4 items with each loop for efficiency. */
 			while (a < lastgroup) {
-				const DistanceType diff0 = nanoflann::abs(a[0] - data_source.kdtree_get_pt(b_idx,d++));
-				const DistanceType diff1 = nanoflann::abs(a[1] - data_source.kdtree_get_pt(b_idx,d++));
-				const DistanceType diff2 = nanoflann::abs(a[2] - data_source.kdtree_get_pt(b_idx,d++));
-				const DistanceType diff3 = nanoflann::abs(a[3] - data_source.kdtree_get_pt(b_idx,d++));
+				const DistanceType diff0 = std::abs(a[0] - data_source.kdtree_get_pt(b_idx,d++));
+				const DistanceType diff1 = std::abs(a[1] - data_source.kdtree_get_pt(b_idx,d++));
+				const DistanceType diff2 = std::abs(a[2] - data_source.kdtree_get_pt(b_idx,d++));
+				const DistanceType diff3 = std::abs(a[3] - data_source.kdtree_get_pt(b_idx,d++));
 				result += diff0 + diff1 + diff2 + diff3;
 				a += 4;
 				if ((worst_dist>0)&&(result>worst_dist)) {
@@ -289,7 +285,7 @@ namespace nanoflann
 			}
 			/* Process last 0-3 components.  Not needed for standard vector lengths. */
 			while (a < last) {
-				result += nanoflann::abs( *a++ - data_source.kdtree_get_pt(b_idx,d++) );
+				result += std::abs( *a++ - data_source.kdtree_get_pt(b_idx,d++) );
 			}
 			return result;
 		}
@@ -297,7 +293,7 @@ namespace nanoflann
 		template <typename U, typename V>
 		inline DistanceType accum_dist(const U a, const V b, int ) const
 		{
-			return nanoflann::abs(a-b);
+			return std::abs(a-b);
 		}
 	};
 
@@ -312,7 +308,7 @@ namespace nanoflann
 		typedef T ElementType;
 		typedef _DistanceType DistanceType;
 
-		const DataSource &data_source;
+		const DataSource data_source;
 
 		L2_Adaptor(const DataSource &_data_source) : data_source(_data_source) { }
 
@@ -361,7 +357,7 @@ namespace nanoflann
 		typedef T ElementType;
 		typedef _DistanceType DistanceType;
 
-		const DataSource &data_source;
+		const DataSource data_source;
 
 		L2_Simple_Adaptor(const DataSource &_data_source) : data_source(_data_source) { }
 
@@ -762,7 +758,7 @@ namespace nanoflann
 		/**
 		 * The dataset used by this index
 		 */
-		const DatasetAdaptor &dataset; //!< The source of our data
+		const DatasetAdaptor dataset; //!< The source of our data
 
 		const KDTreeSingleIndexAdaptorParams index_params;
 
@@ -776,14 +772,16 @@ namespace nanoflann
 		{
 			/** Union used because a node can be either a LEAF node or a non-leaf node, so both data fields are never used simultaneously */
 			union {
-				struct {
+				struct leaf
+                                {
 					IndexType    left, right;  //!< Indices of points in leaf node
 				} lr;
-				struct {
+				struct nonleaf
+                                {
 					int          divfeat; //!< Dimension used for subdivision.
 					DistanceType divlow, divhigh; //!< The values used for subdivision.
 				} sub;
-			};
+			} node_type;
 			Node* child1, * child2;  //!< Child nodes (both=NULL mean its a leaf node)
 		};
 		typedef Node* NodePtr;
@@ -941,7 +939,7 @@ namespace nanoflann
 		 *  \sa knnSearch, findNeighbors, radiusSearchCustomCallback
 		 * \return The number of points within the given radius (i.e. indices.size() or dists.size() )
 		 */
-		size_t radiusSearch(const ElementType *query_point,const DistanceType radius, std::vector<std::pair<IndexType,DistanceType> >& IndicesDists, const SearchParams& searchParams) const 
+		size_t radiusSearch(const ElementType *query_point,const DistanceType &radius, std::vector<std::pair<IndexType,DistanceType> >& IndicesDists, const SearchParams& searchParams) const 
 		{
 			RadiusResultSet<DistanceType,IndexType> resultSet(radius,IndicesDists);
 			const size_t nFound = radiusSearchCustomCallback(query_point,resultSet,searchParams);
@@ -1044,8 +1042,8 @@ namespace nanoflann
 			/* If too few exemplars remain, then make this a leaf node. */
 			if ( (right-left) <= m_leaf_max_size) {
 				node->child1 = node->child2 = NULL;    /* Mark as leaf node. */
-				node->lr.left = left;
-				node->lr.right = right;
+				node->node_type.lr.left = left;
+				node->node_type.lr.right = right;
 
 				// compute bounding-box of leaf points
 				for (int i=0; i<(DIM>0 ? DIM : dim); ++i) {
@@ -1065,7 +1063,7 @@ namespace nanoflann
 				DistanceType cutval;
 				middleSplit_(&vind[0]+left, right-left, idx, cutfeat, cutval, bbox);
 
-				node->sub.divfeat = cutfeat;
+				node->node_type.sub.divfeat = cutfeat;
 
 				BoundingBox left_bbox(bbox);
 				left_bbox[cutfeat].high = cutval;
@@ -1075,8 +1073,8 @@ namespace nanoflann
 				right_bbox[cutfeat].low = cutval;
 				node->child2 = divideTree(left+idx, right, right_bbox);
 
-				node->sub.divlow = left_bbox[cutfeat].high;
-				node->sub.divhigh = right_bbox[cutfeat].low;
+				node->node_type.sub.divlow = left_bbox[cutfeat].high;
+				node->node_type.sub.divhigh = right_bbox[cutfeat].low;
 
 				for (int i=0; i<(DIM>0 ? DIM : dim); ++i) {
 					bbox[i].low = std::min(left_bbox[i].low, right_bbox[i].low);
@@ -1150,7 +1148,7 @@ namespace nanoflann
 		 *  dataset[ind[lim1..lim2-1]][cutfeat]==cutval
 		 *  dataset[ind[lim2..count]][cutfeat]>cutval
 		 */
-		void planeSplit(IndexType* ind, const IndexType count, int cutfeat, DistanceType cutval, IndexType& lim1, IndexType& lim2)
+		void planeSplit(IndexType* ind, const IndexType count, int cutfeat, DistanceType &cutval, IndexType& lim1, IndexType& lim2)
 		{
 			/* Move vector indices for left subtree to front of list. */
 			IndexType left = 0;
@@ -1203,14 +1201,14 @@ namespace nanoflann
 		 * \tparam RESULTSET Should be any ResultSet<DistanceType>
 		 */
 		template <class RESULTSET>
-		void searchLevel(RESULTSET& result_set, const ElementType* vec, const NodePtr node, DistanceType mindistsq,
+		void searchLevel(RESULTSET& result_set, const ElementType* vec, const NodePtr node, DistanceType &mindistsq,
 						 distance_vector_t& dists, const float epsError) const
 		{
 			/* If this is a leaf node, then do check and return. */
 			if ((node->child1 == NULL)&&(node->child2 == NULL)) {
 				//count_leaf += (node->lr.right-node->lr.left);  // Removed since was neither used nor returned to the user.
 				DistanceType worst_dist = result_set.worstDist();
-				for (IndexType i=node->lr.left; i<node->lr.right; ++i) {
+				for (IndexType i=node->node_type.lr.left; i<node->node_type.lr.right; ++i) {
 					const IndexType index = vind[i];// reorder... : i;
 					DistanceType dist = distance(vec, index, (DIM>0 ? DIM : dim));
 					if (dist<worst_dist) {
@@ -1221,10 +1219,10 @@ namespace nanoflann
 			}
 
 			/* Which child branch should be taken first? */
-			int idx = node->sub.divfeat;
+			int idx = node->node_type.sub.divfeat;
 			ElementType val = vec[idx];
-			DistanceType diff1 = val - node->sub.divlow;
-			DistanceType diff2 = val - node->sub.divhigh;
+			DistanceType diff1 = val - node->node_type.sub.divlow;
+			DistanceType diff2 = val - node->node_type.sub.divhigh;
 
 			NodePtr bestChild;
 			NodePtr otherChild;
@@ -1232,12 +1230,12 @@ namespace nanoflann
 			if ((diff1+diff2)<0) {
 				bestChild = node->child1;
 				otherChild = node->child2;
-				cut_dist = distance.accum_dist(val, node->sub.divhigh, idx);
+				cut_dist = distance.accum_dist(val, node->node_type.sub.divhigh, idx);
 			}
 			else {
 				bestChild = node->child2;
 				otherChild = node->child1;
-				cut_dist = distance.accum_dist( val, node->sub.divlow, idx);
+				cut_dist = distance.accum_dist( val, node->node_type.sub.divlow, idx);
 			}
 
 			/* Call recursively to search next level down. */

@@ -28,6 +28,7 @@
 
 #include <nanoflann.hpp>
 
+#include <ctime>
 #include <cstdlib>
 #include <iostream>
 
@@ -146,6 +147,8 @@ void kdtree_demo(const size_t N)
 
 int main()
 {
+	// Randomize Seed
+	srand(time(NULL));
 	kdtree_demo<float>(1000000);
 	kdtree_demo<double>(1000000);
 	return 0;
