@@ -70,7 +70,7 @@ namespace nanoflann
   *  @{ */
 
   	/** Library version: 0xMmP (M=Major,m=minor,P=patch) */
-	#define NANOFLANN_VERSION 0x120
+	#define NANOFLANN_VERSION 0x121
 
 	/** @addtogroup result_sets_grp Result set classes
 	  *  @{ */
@@ -260,7 +260,7 @@ namespace nanoflann
 		typedef T ElementType;
 		typedef _DistanceType DistanceType;
 
-		const DataSource data_source;
+		const DataSource &data_source;
 
 		L1_Adaptor(const DataSource &_data_source) : data_source(_data_source) { }
 
@@ -308,7 +308,7 @@ namespace nanoflann
 		typedef T ElementType;
 		typedef _DistanceType DistanceType;
 
-		const DataSource data_source;
+		const DataSource &data_source;
 
 		L2_Adaptor(const DataSource &_data_source) : data_source(_data_source) { }
 
@@ -357,7 +357,7 @@ namespace nanoflann
 		typedef T ElementType;
 		typedef _DistanceType DistanceType;
 
-		const DataSource data_source;
+		const DataSource &data_source;
 
 		L2_Simple_Adaptor(const DataSource &_data_source) : data_source(_data_source) { }
 
@@ -758,7 +758,7 @@ namespace nanoflann
 		/**
 		 * The dataset used by this index
 		 */
-		const DatasetAdaptor dataset; //!< The source of our data
+		const DatasetAdaptor &dataset; //!< The source of our data
 
 		const KDTreeSingleIndexAdaptorParams index_params;
 
@@ -1040,7 +1040,7 @@ namespace nanoflann
 			NodePtr node = pool.allocate<Node>(); // allocate memory
 
 			/* If too few exemplars remain, then make this a leaf node. */
-			if ( (right-left) <= m_leaf_max_size) {
+			if ( (right-left) <= static_cast<IndexType>(m_leaf_max_size) ) {
 				node->child1 = node->child2 = NULL;    /* Mark as leaf node. */
 				node->node_type.lr.left = left;
 				node->node_type.lr.right = right;
